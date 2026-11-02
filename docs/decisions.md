@@ -108,3 +108,24 @@ This file records resolved architectural decisions, their context, alternatives 
   - *`fast` / `deep`:* Rejected due to misleading cognitive analogy.
 - **Consequences:**
   - `RecallMode` enum values are `auto`, `evidence`, and `associative` across all APIs, configs, CLI commands, and documentation.
+
+---
+
+### ADR-0007: Phase 0 Go/Adjust Decision on Hybrid Associative Recall and Training Strategy
+- **Status:** Accepted
+- **Date:** 2026-11-02
+- **Context:** Milestone M1 (Phase 0 Research Spike, `experiments/phase0/REPORT.md`) evaluated MLX LoRA compatibility and compared `lexical-fts`, `full-context`, `base-model-no-adapter`, `parametric-only` LoRA adapters, and `hybrid` (`associate -> verify -> answer`) adapters across World Slice 1 and Slice 2 (under incremental no-replay, incremental with 50% replay, and full retrain).
+- **Decision:**
+  1. **Go on Hybrid Associative Recall (`associate -> verify -> answer`):** Deprioritize standalone unverified parametric answers. Associative recall must always run the Hippocore verification pass (`design.md` §6.3) so that:
+     - Vague associative cues (`incomplete_cue`) gain positive uplift over `lexical-fts`.
+     - Unseen / newly written (`held_out`) facts are still recalled accurately via Hippocore.
+     - Stale parametric weights citing superseded records are automatically upgraded to the active replacement record via Hippocore's `supersedes` links (**Conflict Rule**).
+  2. **Retain both Incremental Replay (50% historical replay) and Full Retrain in M5:** Incremental fine-tuning without replay exhibits severe catastrophic forgetting on Slice 1 retention and is rejected. Incremental fine-tuning with >= 50% historical replay is viable for routine Dream cycles, while full retrain from a clean base remains mandatory on `weights_dirty` deletions, base-model changes, and periodic drift resets.
+- **Alternatives Considered:**
+  - *Parametric-only recall without Hippocore verification:* Rejected because it scores `0.00%` on unseen (`held_out`) facts and fails temporal consistency when facts are superseded between Dream cycles.
+  - *Incremental fine-tuning without historical replay:* Rejected due to catastrophic forgetting of Slice 1 memories.
+- **Consequences:**
+  - M4 (`engram`) will implement the 3-step `associate -> verify -> answer` pipeline with deterministic post-generation guards and `supersedes` resolution.
+  - M5 (`dream`) will enforce a minimum 50% historical replay ratio on incremental runs and support full retrains from clean base weights.
+  - Production model selection in v0.3 will apply the explicit Phase 0 kill criteria (`associative_recall_uplift > 2.0%`, zero isolation/deletion leakage, and `<= 1.0%` temporal consistency regression).
+

@@ -51,6 +51,9 @@ class Scope(BaseModel):
     def __str__(self) -> str:
         return f"{self.kind.value}:{self.id}"
 
+    def __hash__(self) -> int:
+        return hash((self.kind, self.id))
+
 
 class Permission(StrEnum):
     """Fine-grained operation permissions carried by an AuthContext."""

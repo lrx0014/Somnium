@@ -129,18 +129,18 @@ Applies to every task in every milestone:
 
 **Tasks — benchmark (reusable product code under `src/somnium/eval/`)**
 
-- [ ] **M1.1 Synthetic world generator** (seeded, deterministic): tenants, several projects with overlapping names, facts with precise `event_time`, decisions superseded over time, near-duplicate facts across projects, preferences (global vs project), sensitive records, deletion and correction events.
-- [ ] **M1.2 Question generator** per design §8.2 categories: direct, paraphrase, incomplete cue, temporal (current/superseded/order), unknown, cross-scope, scope attribution, correction. Split **by underlying fact** into train / held-out.
-- [ ] **M1.3 Scoring:** structured/exact matching for facts, dates, scope attribution, abstention; claim-label checks; optional model-graded scoring behind a versioned interface. Scoring method fixed per metric and versioned with the suite.
-- [ ] **M1.4 Eval harness:** `somnium eval run --suite synthetic-v1 --system <name>` → JSON results + Markdown report; pluggable "systems under test".
-- [ ] **M1.5 Baseline systems:** lexical retrieval (standalone FTS), full memory set in context, base model without adapter.
+- [x] **M1.1 Synthetic world generator** (seeded, deterministic): tenants, several projects with overlapping names, facts with precise `event_time`, decisions superseded over time, near-duplicate facts across projects, preferences (global vs project), sensitive records, deletion and correction events.
+- [x] **M1.2 Question generator** per design §8.2 categories: direct, paraphrase, incomplete cue, temporal (current/superseded/order), unknown, cross-scope, scope attribution, correction. Split **by underlying fact** into train / held-out.
+- [x] **M1.3 Scoring:** structured/exact matching for facts, dates, scope attribution, abstention; claim-label checks; optional model-graded scoring behind a versioned interface. Scoring method fixed per metric and versioned with the suite.
+- [x] **M1.4 Eval harness:** `somnium eval run --suite synthetic-v1 --system <name>` → JSON results + Markdown report; pluggable "systems under test".
+- [x] **M1.5 Baseline systems:** lexical retrieval (standalone FTS), full memory set in context, base model without adapter.
 
 **Tasks — research spike (under `experiments/phase0/`)**
 
-- [ ] **M1.6 MLX compatibility check:** small Qwen3 models (e.g. 0.6B, 1.7B): load, chat template, generate, LoRA train, load adapter, quantized variants. Pin and record all versions.
-- [ ] **M1.7 Experiment A:** train adapter 1 on world slice 1; measure acquisition and parametric recall.
-- [ ] **M1.8 Experiment B:** add slice 2; compare **incremental with replay** vs **full retrain**; measure retention, temporal consistency, scope attribution, hallucination.
-- [ ] **M1.9 Report:** `experiments/phase0/REPORT.md` with numbers vs baselines, failure analysis, conditions under which associative recall would be deprioritized; ADR with go / adjust decision.
+- [x] **M1.6 MLX compatibility check:** small Qwen3 models (e.g. 0.6B, 1.7B): load, chat template, generate, LoRA train, load adapter, quantized variants. Pin and record all versions.
+- [x] **M1.7 Experiment A:** train adapter 1 on world slice 1; measure acquisition and parametric recall.
+- [x] **M1.8 Experiment B:** add slice 2; compare **incremental with replay** vs **full retrain**; measure retention, temporal consistency, scope attribution, hallucination.
+- [x] **M1.9 Report:** `experiments/phase0/REPORT.md` with numbers vs baselines, failure analysis, conditions under which associative recall would be deprioritized; ADR with go / adjust decision.
 
 **Exit criteria**
 

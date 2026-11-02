@@ -17,8 +17,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Empty placeholders in M0 (populated in M1 for mlx and v0.3 for cuda, per Milestones M0.2)
-mlx = []
+mlx = [
+    "mlx>=0.20.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-lm>=0.19.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 cuda = []
 dev = [
     "pytest>=8.2.0",
