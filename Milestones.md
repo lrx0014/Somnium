@@ -156,16 +156,16 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M2.1 Schema and migrations** (e.g. SQLAlchemy Core + Alembic): `memory_events`, `memory_revisions`, `memory_facts` (materialized current state), `memory_sources`, `memory_access`, `deletion_requests`. `tenant_id` and scope on every row. Upgrade/downgrade tests.
-- [ ] **M2.2 Scoped repository layer:** all reads/writes require an `AuthContext`; scope filter applied in the query builder; no unscoped query API exists.
-- [ ] **M2.3 Write path:** normalization, deduplication by source/event identity (idempotency key), secret detection (reject credentials/keys), sensitivity classification (explicit + rule-based), `training_eligible` computation, provenance.
-- [ ] **M2.4 Corrections and revisions:** immutable revisions, `supersedes` links, fact materialization, correction lookup API ("is this fact superseded?").
-- [ ] **M2.5 Deletion:** deletion modes, removal from tables and FTS index, tombstones without content, `deletion_requests` audit, a per-tenant `weights_dirty` marker for records that were training-eligible (consumed by M6).
-- [ ] **M2.6 Retriever (FTS5):** BM25 ranking with normalized relevance, active-first ordering, supersession links in results, scope filter enforced at SQL level.
-- [ ] **M2.7 Access logging:** distinguish `retrieved` vs `used`.
-- [ ] **M2.8 Export:** per-tenant JSONL export of records and revisions.
-- [ ] **M2.9 Isolation test suite:** property-based tests (e.g. Hypothesis) generating random scopes/principals and asserting zero cross-scope leakage for every query path.
-- [ ] **M2.10 Benchmark integration:** ingest the M1 synthetic world; record evidence-retrieval baseline numbers.
+- [x] **M2.1 Schema and migrations** (e.g. SQLAlchemy Core + Alembic): `memory_events`, `memory_revisions`, `memory_facts` (materialized current state), `memory_sources`, `memory_access`, `deletion_requests`. `tenant_id` and scope on every row. Upgrade/downgrade tests.
+- [x] **M2.2 Scoped repository layer:** all reads/writes require an `AuthContext`; scope filter applied in the query builder; no unscoped query API exists.
+- [x] **M2.3 Write path:** normalization, deduplication by source/event identity (idempotency key), secret detection (reject credentials/keys), sensitivity classification (explicit + rule-based), `training_eligible` computation, provenance.
+- [x] **M2.4 Corrections and revisions:** immutable revisions, `supersedes` links, fact materialization, correction lookup API ("is this fact superseded?").
+- [x] **M2.5 Deletion:** deletion modes, removal from tables and FTS index, tombstones without content, `deletion_requests` audit, a per-tenant `weights_dirty` marker for records that were training-eligible (consumed by M6).
+- [x] **M2.6 Retriever (FTS5):** BM25 ranking with normalized relevance, active-first ordering, supersession links in results, scope filter enforced at SQL level.
+- [x] **M2.7 Access logging:** distinguish `retrieved` vs `used`.
+- [x] **M2.8 Export:** per-tenant JSONL export of records and revisions.
+- [x] **M2.9 Isolation test suite:** property-based tests (e.g. Hypothesis) generating random scopes/principals and asserting zero cross-scope leakage for every query path.
+- [x] **M2.10 Benchmark integration:** ingest the M1 synthetic world; record evidence-retrieval baseline numbers.
 
 **Exit criteria**
 

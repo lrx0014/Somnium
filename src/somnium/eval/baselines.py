@@ -24,6 +24,7 @@ from uuid import UUID
 from somnium.backends.base import GenerationRequest, InferenceBackend
 from somnium.backends.fake import FakeInferenceBackend
 from somnium.domain import (
+    AuthContext,
     Claim,
     ClaimSupport,
     MemoryRecord,
@@ -33,6 +34,7 @@ from somnium.domain import (
 )
 from somnium.eval.questions import BenchmarkQuestion
 from somnium.eval.scoring import SystemPrediction
+from somnium.hippocore import HippocoreFtsRetriever, HippocoreStore
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9_]+")
 _SUPPORTED_TAG_RE = re.compile(
@@ -281,6 +283,130 @@ class StandaloneFtsBaseline:
         )
         cited_ids = tuple(rec.id for rec, _ in hits)
         combined_text = " ".join(f"[{rec.scope.id}] {rec.content}" for rec, _ in hits)
+
+        return SystemPrediction(
+            question_id=question.question_id,
+            recall_mode=ResolvedRecallMode.EVIDENCE,
+            abstained=False,
+            answer_text=combined_text,
+            claims=claims,
+            cited_record_ids=cited_ids,
+            latency_ms=latency_ms,
+        )
+
+
+class HippocoreBaseline:
+    """Evidence-retrieval SUT backed by the real `HippocoreStore` + `HippocoreFtsRetriever` (M2.10).
+
+    Ingests `world_records` into an in-memory `HippocoreStore` (cached per record set)
+    and executes every query through `HippocoreFtsRetriever` with an explicit
+    `AuthContext` carrying `question.authorized_scopes`.
+    """
+
+    def __init__(self, *, min_bm25_score: float = 2.45, top_k: int = 2) -> None:
+        self._min_bm25_score = min_bm25_score
+        self._top_k = top_k
+        self._cached_key: tuple[UUID, ...] | None = None
+        self._store: HippocoreStore | None = None
+        self._retriever: HippocoreFtsRetriever | None = None
+
+    @property
+    def system_name(self) -> str:
+        return "hippocore-fts"
+
+    def _ensure_ingested(
+        self, world_records: Sequence[MemoryRecord]
+    ) -> tuple[HippocoreStore, HippocoreFtsRetriever]:
+        key = tuple(r.id for r in world_records)
+        if self._cached_key == key and self._store is not None and self._retriever is not None:
+            return self._store, self._retriever
+
+        store = HippocoreStore("sqlite:///:memory:")
+        # Sort so superseded records are ingested before their superseding replacements
+        ordered_records = sorted(
+            world_records,
+            key=lambda r: (1 if r.supersedes else 0, r.recorded_at, str(r.id)),
+        )
+        for rec in ordered_records:
+            ingest_auth = AuthContext(
+                tenant_id=rec.tenant_id,
+                principal_id="benchmark-ingester",
+                authorized_scopes=(rec.scope,),
+            )
+            store.ingest_record(ingest_auth, rec)
+
+        retriever = HippocoreFtsRetriever(
+            store,
+            min_bm25_score=self._min_bm25_score,
+            log_retrievals=True,
+        )
+        self._cached_key = key
+        self._store = store
+        self._retriever = retriever
+        return store, retriever
+
+    def predict(
+        self,
+        question: BenchmarkQuestion,
+        world_records: Sequence[MemoryRecord],
+    ) -> SystemPrediction:
+        """Execute `HippocoreFtsRetriever.retrieve` with strict `AuthContext` isolation."""
+        _, retriever = self._ensure_ingested(world_records)
+        t0 = time.perf_counter()
+
+        auth = AuthContext(
+            tenant_id=question.tenant_id,
+            principal_id="benchmark-evaluator",
+            authorized_scopes=question.authorized_scopes,
+        )
+        target_scopes = (
+            (question.requested_scope,)
+            if (
+                question.preferred_mode == RecallMode.EVIDENCE
+                and question.requested_scope is not None
+            )
+            else question.authorized_scopes
+        )
+
+        try:
+            items = retriever.retrieve(
+                auth,
+                question.question,
+                scopes=target_scopes,
+                limit=self._top_k,
+                include_superseded=False,
+            )
+        except PermissionError:
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+            return SystemPrediction(
+                question_id=question.question_id,
+                recall_mode=ResolvedRecallMode.EVIDENCE,
+                abstained=True,
+                answer_text="no_match",
+                latency_ms=latency_ms,
+            )
+
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+        if not items:
+            return SystemPrediction(
+                question_id=question.question_id,
+                recall_mode=ResolvedRecallMode.EVIDENCE,
+                abstained=True,
+                answer_text="no_match",
+                latency_ms=latency_ms,
+            )
+
+        claims = tuple(
+            Claim(
+                text=item.content,
+                support=ClaimSupport.SUPPORTED,
+                evidence=(item.memory_id,),
+                scope=item.scope,
+            )
+            for item in items
+        )
+        cited_ids = tuple(item.memory_id for item in items)
+        combined_text = " ".join(f"[{item.scope.id}] {item.content}" for item in items)
 
         return SystemPrediction(
             question_id=question.question_id,

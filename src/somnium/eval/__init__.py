@@ -6,6 +6,7 @@ from somnium.eval.baselines import (
     AssociativeAdapterSystem,
     BaseModelNoAdapterBaseline,
     FullContextBaseline,
+    HippocoreBaseline,
     StandaloneFtsBaseline,
     SystemUnderTest,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "DatasetManifest",
     "FactBlueprint",
     "FullContextBaseline",
+    "HippocoreBaseline",
     "ModelGrader",
     "PRIMARY_TENANT",
     "QuestionCategory",

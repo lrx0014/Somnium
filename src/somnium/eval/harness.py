@@ -18,6 +18,7 @@ from somnium.domain import MemoryStatus
 from somnium.eval.baselines import (
     BaseModelNoAdapterBaseline,
     FullContextBaseline,
+    HippocoreBaseline,
     StandaloneFtsBaseline,
     SystemUnderTest,
 )
@@ -115,13 +116,15 @@ def resolve_builtin_system(system_name: str) -> SystemUnderTest:
     normalized = system_name.strip().lower()
     if normalized == "lexical-fts":
         return StandaloneFtsBaseline()
+    if normalized == "hippocore-fts":
+        return HippocoreBaseline()
     if normalized == "full-context":
         return FullContextBaseline()
     if normalized == "base-model-no-adapter":
         return BaseModelNoAdapterBaseline()
     raise ValueError(
         f"Unknown system '{system_name}'. Built-in systems: "
-        "'lexical-fts', 'full-context', 'base-model-no-adapter'."
+        "'lexical-fts', 'hippocore-fts', 'full-context', 'base-model-no-adapter'."
     )
 
 

@@ -160,6 +160,8 @@ def _detect_abstention(prediction: SystemPrediction) -> bool:
     """Return True if `prediction` explicitly abstains or has status unknown/no_match."""
     if prediction.abstained:
         return True
+    if prediction.cited_record_ids:
+        return False
     lowered = prediction.answer_text.strip().lower()
     if not lowered:
         return True
@@ -220,13 +222,11 @@ def score_single_question(
             claim_labels_valid = False
             has_unsupported_claim = True
 
-    # If the model answered a factual question without abstaining and without any cited
-    # evidence, check if it invented an incorrect ISO date.
+    # Check if the answer stated ISO date(s) that omit the expected event date.
     if not abstained and question.expected_event_date is not None:
         dates_in_answer = _ISO_DATE_RE.findall(answer_text)
-        for d in dates_in_answer:
-            if d != question.expected_event_date:
-                has_unsupported_claim = True
+        if dates_in_answer and question.expected_event_date not in dates_in_answer:
+            has_unsupported_claim = True
 
     if has_forbidden:
         has_unsupported_claim = True
