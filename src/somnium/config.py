@@ -42,9 +42,12 @@ class GatewayConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = Field(default=8765, ge=1, le=65535)
     default_tenant_id: TenantId = "local-user"
+    default_principal_id: str = Field(default="codex-local", min_length=1)
     default_scope: Scope = Field(
         default_factory=lambda: Scope(kind=ScopeKind.PROJECT, id="default")
     )
+    authorized_scopes: tuple[Scope, ...] = Field(default_factory=tuple)
+    allow_all_scopes: bool = True
     default_recall_mode: RecallMode = RecallMode.AUTO
     allow_cross_scope_by_default: bool = True
 

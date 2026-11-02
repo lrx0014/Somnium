@@ -5,6 +5,7 @@ from __future__ import annotations
 from somnium.eval.baselines import (
     AssociativeAdapterSystem,
     BaseModelNoAdapterBaseline,
+    EngramPipelineBaseline,
     FullContextBaseline,
     HippocoreBaseline,
     StandaloneFtsBaseline,
@@ -49,6 +50,7 @@ __all__ = [
     "BenchmarkQuestion",
     "BenchmarkRunResult",
     "DatasetManifest",
+    "EngramPipelineBaseline",
     "FactBlueprint",
     "FullContextBaseline",
     "HippocoreBaseline",

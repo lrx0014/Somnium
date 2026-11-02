@@ -267,6 +267,7 @@ class EvidenceRecordItem(BaseModel):
     scope: Scope
     kind: MemoryKind
     content: str
+    delimited_content: str | None = None
     event_time: datetime
     status: MemoryStatus = MemoryStatus.ACTIVE
     relevance: float = Field(ge=0.0, le=1.0)

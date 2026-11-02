@@ -140,7 +140,7 @@ def _normalize_relevance(score: float) -> float:
     """Map a positive BM25-derived score into `[0.0, 1.0]` monotonically."""
     if score <= 0.0:
         return 0.0
-    normalized = score / (score + 1.5)
+    normalized = score / (score + 0.5)
     return round(min(1.0, max(0.0, normalized)), 4)
 
 
@@ -289,7 +289,7 @@ class HippocoreFtsRetriever:
                 content=content_str,
                 event_time=datetime.fromisoformat(str(rmap["event_time"])),
                 status=status_enum,
-                relevance=_normalize_relevance(combined_score),
+                relevance=_normalize_relevance(max(combined_score, float(matched_terms))),
                 supersedes=tuple(UUID(x) for x in supersedes_list),
                 superseded_by=UUID(str(superseded_by_val)) if superseded_by_val else None,
             )

@@ -23,6 +23,7 @@ class GenerationRequest:
     system_prompt: str | None = None
     max_tokens: int = 512
     temperature: float = 0.1
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

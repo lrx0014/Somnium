@@ -18,6 +18,7 @@ from somnium.hippocore.schema import (
     memory_revisions,
     memory_sources,
     metadata,
+    routing_decisions,
     tenant_state,
 )
 from somnium.hippocore.security import (
@@ -50,6 +51,7 @@ __all__ = [
     "memory_sources",
     "metadata",
     "normalize_content",
+    "routing_decisions",
     "tenant_state",
     "upgrade_database",
 ]

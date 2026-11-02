@@ -156,3 +156,20 @@ tenant_state = Table(
     Column("weights_dirty", Boolean, nullable=False, default=False),
     Column("updated_at", String(64), nullable=False),
 )
+
+routing_decisions = Table(
+    "routing_decisions",
+    metadata,
+    Column("decision_id", String(36), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("principal_id", String(256), nullable=False),
+    Column("question", Text, nullable=False, default=""),
+    Column("requested_scope", String(256), nullable=True),
+    Column("requested_mode", String(32), nullable=False),
+    Column("resolved_mode", String(32), nullable=False),
+    Column("reason", String(128), nullable=False),
+    Column("fallback_used", Boolean, nullable=False, default=False),
+    Column("features_json", Text, nullable=False, default="{}"),
+    Column("decided_at", String(64), nullable=False),
+    Index("ix_routing_decisions_tenant_time", "tenant_id", "decided_at"),
+)

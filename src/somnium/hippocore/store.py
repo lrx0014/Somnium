@@ -35,6 +35,7 @@ from sqlalchemy import (
     tuple_,
     update,
 )
+from sqlalchemy.pool import StaticPool
 
 from somnium.backends.fake import SystemClock
 from somnium.domain import (
@@ -166,7 +167,21 @@ class HippocoreStore:
         auto_migrate: bool = True,
     ) -> None:
         if isinstance(engine, str):
-            self._engine = create_engine(engine, future=True)
+            if engine == "sqlite:///:memory:":
+                self._engine = create_engine(
+                    engine,
+                    future=True,
+                    connect_args={"check_same_thread": False},
+                    poolclass=StaticPool,
+                )
+            elif engine.startswith("sqlite"):
+                self._engine = create_engine(
+                    engine,
+                    future=True,
+                    connect_args={"check_same_thread": False},
+                )
+            else:
+                self._engine = create_engine(engine, future=True)
         else:
             self._engine = engine
         self._clock = clock or SystemClock()

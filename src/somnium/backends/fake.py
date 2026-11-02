@@ -8,8 +8,11 @@ dependencies.
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from somnium.backends.base import (
     GenerationRequest,
@@ -18,6 +21,12 @@ from somnium.backends.base import (
     TrainingJobSpec,
 )
 from somnium.domain import AuthContext, Permission, Scope, ScopeKind, TenantId
+
+_DEFAULT_FAKE_RESPONSE = '{"status": "unknown", "claims": []}'
+_FAKE_UNTRUSTED_RE = re.compile(
+    r'<untrusted_memory\s+id="([^"]+)"\s+scope="([^"]+)">\s*(.*?)\s*</untrusted_memory>',
+    re.DOTALL,
+)
 
 
 class SystemClock:
@@ -186,11 +195,16 @@ class FakeInferenceBackend:
         if self._responder is not None:
             text = self._responder(request, version)
         else:
-            text = self._default_response
+            text = None
             for substring, scripted in self._scripted_substrings:
                 if substring in request.prompt:
                     text = scripted
                     break
+            if text is None:
+                if self._default_response != _DEFAULT_FAKE_RESPONSE:
+                    text = self._default_response
+                else:
+                    text = self._default_engram_json(request.prompt)
 
         return GenerationResult(
             text=text,
@@ -198,6 +212,66 @@ class FakeInferenceBackend:
             prompt_tokens=len(request.prompt.split()),
             completion_tokens=len(text.split()),
         )
+
+    def _default_engram_json(self, prompt: str) -> str:
+        """Synthesize deterministic Engram JSON from `<untrusted_memory>` blocks when unscripted."""
+        blocks = [
+            {
+                "id": m.group(1).strip(),
+                "scope": m.group(2).strip(),
+                "content": m.group(3).strip(),
+            }
+            for m in _FAKE_UNTRUSTED_RE.finditer(prompt)
+        ]
+        if "[SOMNIUM_ENGRAM_PROMPT: associate_v1]" in prompt:
+            return json.dumps(
+                {
+                    "template_version": "v1",
+                    "cue_terms": [],
+                    "candidate_claims": [
+                        {
+                            "text": b["content"],
+                            "cue_terms": [],
+                            "cited_ids": [b["id"]],
+                            "scope": b["scope"],
+                        }
+                        for b in blocks
+                    ],
+                }
+            )
+        if "[SOMNIUM_ENGRAM_PROMPT: answer_v1]" in prompt:
+            if not blocks:
+                return json.dumps(
+                    {
+                        "status": "unknown",
+                        "answer": None,
+                        "claims": [],
+                        "uncertainty": "high",
+                    }
+                )
+            claims: list[dict[str, Any]] = []
+            parts: list[str] = []
+            for b in blocks:
+                scope_id = b["scope"].split(":", 1)[-1]
+                claim_text = f"[{scope_id}] {b['content']}"
+                claims.append(
+                    {
+                        "text": claim_text,
+                        "support": "supported",
+                        "evidence": [b["id"]],
+                        "scope": b["scope"],
+                    }
+                )
+                parts.append(claim_text)
+            return json.dumps(
+                {
+                    "status": "ok",
+                    "answer": " ".join(parts),
+                    "claims": claims,
+                    "uncertainty": "low",
+                }
+            )
+        return self._default_response
 
 
 class FakeTrainingBackend:

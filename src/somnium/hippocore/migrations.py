@@ -18,6 +18,7 @@ from somnium.hippocore.schema import (
     memory_revisions,
     memory_sources,
     metadata,
+    routing_decisions,
     tenant_state,
 )
 
@@ -39,6 +40,7 @@ _ALL_CORE_TABLES = (
     memory_access,
     deletion_requests,
     tenant_state,
+    routing_decisions,
 )
 
 

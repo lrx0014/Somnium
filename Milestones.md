@@ -181,14 +181,14 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M3.1 Service layer:** transport-independent `MemoryService` implementing ask/store/correct/forget/status over versioned models.
-- [ ] **M3.2 MCP server (stdio)** using the official MCP Python SDK (verify version and API): tools `memory_store`, `memory_ask`, `memory_correct`, `memory_forget`, `memory_status`. `memory_ask` supports `mode=evidence`; `auto` resolves to evidence until M4.
-- [ ] **M3.3 Tool descriptions** explaining when each mode/tool is appropriate; untrusted-content delimiting in returned records.
-- [ ] **M3.4 Static local `AuthProvider`** from config (tenant, principal, scopes); scope resolution from request + config defaults.
-- [ ] **M3.5 Responses:** evidence-recall format (design §9), `no_match` status, error model with stable error codes.
-- [ ] **M3.6 User CLI:** `somnium serve --stdio`, `somnium memory search|show|list|correct|forget|export`.
-- [ ] **M3.7 Codex integration guide:** MCP configuration for Codex (verified against current Codex documentation), an `AGENTS.md` instruction template for when to store/recall, documented limitations.
-- [ ] **M3.8 End-to-end tests:** MCP client → store → ask → record returned; correction and deletion visible immediately; latency measured.
+- [x] **M3.1 Service layer:** transport-independent `MemoryService` implementing ask/store/correct/forget/status over versioned models.
+- [x] **M3.2 MCP server (stdio)** using the official MCP Python SDK (verify version and API): tools `memory_store`, `memory_ask`, `memory_correct`, `memory_forget`, `memory_status`. `memory_ask` supports `mode=evidence`; `auto` resolves to evidence until M4.
+- [x] **M3.3 Tool descriptions** explaining when each mode/tool is appropriate; untrusted-content delimiting in returned records.
+- [x] **M3.4 Static local `AuthProvider`** from config (tenant, principal, scopes); scope resolution from request + config defaults.
+- [x] **M3.5 Responses:** evidence-recall format (design §9), `no_match` status, error model with stable error codes.
+- [x] **M3.6 User CLI:** `somnium serve --stdio`, `somnium memory search|show|list|correct|forget|export`.
+- [x] **M3.7 Codex integration guide:** MCP configuration for Codex (verified against current Codex documentation), an `AGENTS.md` instruction template for when to store/recall, documented limitations.
+- [x] **M3.8 End-to-end tests:** MCP client → store → ask → record returned; correction and deletion visible immediately; latency measured.
 
 **Exit criteria**
 
@@ -204,14 +204,14 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M4.1 MLX `InferenceBackend`:** model loading from config, chat template handling, generation parameters, adapter loading hook, atomic adapter swap API (used in M5), timeouts.
-- [ ] **M4.2 Versioned prompt templates** (files, not inline strings): current date/time and scope injection, evidence formatting with untrusted-data delimiters, output schema instructions.
-- [ ] **M4.3 Pipeline:** associate (claims + cue terms) → verify (Hippocore lookups within authorized scopes + correction checks) → answer (final claims with support labels and scope tags).
-- [ ] **M4.4 Structured output handling:** schema validation, bounded repair/retry, fallback to evidence result on failure.
-- [ ] **M4.5 Post-generation guards (deterministic code, not model trust):** every `supported` claim must cite existing evidence IDs in authorized scopes, otherwise downgrade to `unverified`; strip precise dates/sources from `unverified` claims; enforce conflict rule (superseded facts cannot be asserted as current).
-- [ ] **M4.6 `RecallRouter` (rules):** thresholds and cue patterns from config; fallback when associative recall is unavailable; `routing_decisions` table logging features, decision, reason.
-- [ ] **M4.7 API:** `mode=associative` and `auto` enabled; `cross_scope` parameter; associative response format (design §9); `unknown` status.
-- [ ] **M4.8 Benchmark:** run the suite for associative recall on the base model ("no adapter" baseline) and for `auto`.
+- [x] **M4.1 MLX `InferenceBackend`:** model loading from config, chat template handling, generation parameters, adapter loading hook, atomic adapter swap API (used in M5), timeouts.
+- [x] **M4.2 Versioned prompt templates** (files, not inline strings): current date/time and scope injection, evidence formatting with untrusted-data delimiters, output schema instructions.
+- [x] **M4.3 Pipeline:** associate (claims + cue terms) → verify (Hippocore lookups within authorized scopes + correction checks) → answer (final claims with support labels and scope tags).
+- [x] **M4.4 Structured output handling:** schema validation, bounded repair/retry, fallback to evidence result on failure.
+- [x] **M4.5 Post-generation guards (deterministic code, not model trust):** every `supported` claim must cite existing evidence IDs in authorized scopes, otherwise downgrade to `unverified`; strip precise dates/sources from `unverified` claims; enforce conflict rule (superseded facts cannot be asserted as current).
+- [x] **M4.6 `RecallRouter` (rules):** thresholds and cue patterns from config; fallback when associative recall is unavailable; `routing_decisions` table logging features, decision, reason.
+- [x] **M4.7 API:** `mode=associative` and `auto` enabled; `cross_scope` parameter; associative response format (design §9); `unknown` status.
+- [x] **M4.8 Benchmark:** run the suite for associative recall on the base model ("no adapter" baseline) and for `auto`.
 
 **Exit criteria**
 

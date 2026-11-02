@@ -1,0 +1,13 @@
+[SOMNIUM_ENGRAM_PROMPT: repair_v1]
+Current UTC Datetime: {current_datetime}
+Target Schema Name: {schema_name}
+
+Your previous output failed JSON or schema validation.
+Validation Error:
+{validation_error}
+
+Previous Raw Output:
+{raw_output}
+
+Output Instructions:
+Return ONLY the corrected, valid JSON object conforming to `{schema_name}` with no surrounding commentary.

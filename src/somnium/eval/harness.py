@@ -14,9 +14,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from somnium.domain import MemoryStatus
+from somnium.domain import MemoryStatus, RecallMode
 from somnium.eval.baselines import (
     BaseModelNoAdapterBaseline,
+    EngramPipelineBaseline,
     FullContextBaseline,
     HippocoreBaseline,
     StandaloneFtsBaseline,
@@ -122,9 +123,20 @@ def resolve_builtin_system(system_name: str) -> SystemUnderTest:
         return FullContextBaseline()
     if normalized == "base-model-no-adapter":
         return BaseModelNoAdapterBaseline()
+    if normalized == "engram-base-associative":
+        return EngramPipelineBaseline(
+            mode=RecallMode.ASSOCIATIVE,
+            name="engram-base-associative",
+        )
+    if normalized == "freud-auto":
+        return EngramPipelineBaseline(
+            mode=RecallMode.AUTO,
+            name="freud-auto",
+        )
     raise ValueError(
         f"Unknown system '{system_name}'. Built-in systems: "
-        "'lexical-fts', 'hippocore-fts', 'full-context', 'base-model-no-adapter'."
+        "'lexical-fts', 'hippocore-fts', 'full-context', 'base-model-no-adapter', "
+        "'engram-base-associative', 'freud-auto'."
     )
 
 

@@ -5,6 +5,7 @@ Only modules inside this package may import `mlx` or `mlx_lm`.
 
 from __future__ import annotations
 
+from somnium.backends.mlx.inference import AdapterSwapHook, MLXInferenceBackend
 from somnium.backends.mlx.runner import (
     MLXCompatibilityReport,
     MLXLoRAAssociativeBackend,
@@ -13,7 +14,9 @@ from somnium.backends.mlx.runner import (
 )
 
 __all__ = [
+    "AdapterSwapHook",
     "MLXCompatibilityReport",
+    "MLXInferenceBackend",
     "MLXLoRAAssociativeBackend",
     "render_qwen3_chat_prompt",
     "verify_qwen3_mlx_compatibility",

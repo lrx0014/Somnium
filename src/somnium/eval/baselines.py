@@ -21,19 +21,26 @@ from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
+from somnium.backends import create_inference_backend
 from somnium.backends.base import GenerationRequest, InferenceBackend
 from somnium.backends.fake import FakeInferenceBackend
+from somnium.config import InferenceConfig
 from somnium.domain import (
+    AssociativeRecallResponse,
     AuthContext,
     Claim,
     ClaimSupport,
+    EvidenceRecallResponse,
+    MemoryAskRequest,
     MemoryRecord,
     MemoryStatus,
     RecallMode,
     ResolvedRecallMode,
 )
+from somnium.engram import EngramAssociativePipeline
 from somnium.eval.questions import BenchmarkQuestion
 from somnium.eval.scoring import SystemPrediction
+from somnium.freud import FreudError, MemoryService, RuleBasedRecallRouter
 from somnium.hippocore import HippocoreFtsRetriever, HippocoreStore
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9_]+")
@@ -825,3 +832,176 @@ def _parse_generated_answer(
         cited_record_ids=(),
         latency_ms=latency_ms,
     )
+
+
+class EngramPipelineBaseline:
+    """End-to-end SUT exercising MemoryService, Router, and Engram pipeline (M4.8).
+
+    Supports:
+    - `system_name="engram-base-associative"` (`mode=RecallMode.ASSOCIATIVE`)
+    - `system_name="freud-auto"` (`mode=RecallMode.AUTO`)
+    """
+
+    def __init__(
+        self,
+        *,
+        mode: RecallMode = RecallMode.ASSOCIATIVE,
+        name: str = "engram-base-associative",
+        backend: InferenceBackend | None = None,
+        min_bm25_score: float = 2.45,
+        top_k: int = 2,
+    ) -> None:
+        self._mode = mode
+        self._name = name
+        self._backend = backend or create_inference_backend(InferenceConfig(backend="mlx"))
+        self._min_bm25_score = min_bm25_score
+        self._top_k = top_k
+        self._cached_key: tuple[UUID, ...] | None = None
+        self._service: MemoryService | None = None
+
+    @property
+    def system_name(self) -> str:
+        return self._name
+
+    def _ensure_service(self, world_records: Sequence[MemoryRecord]) -> MemoryService:
+        key = tuple(r.id for r in world_records)
+        if self._cached_key == key and self._service is not None:
+            return self._service
+
+        store = HippocoreStore("sqlite:///:memory:")
+        ordered_records = sorted(
+            world_records,
+            key=lambda r: (1 if r.supersedes else 0, r.recorded_at, str(r.id)),
+        )
+        for rec in ordered_records:
+            ingest_auth = AuthContext(
+                tenant_id=rec.tenant_id,
+                principal_id="benchmark-ingester",
+                authorized_scopes=(rec.scope,),
+            )
+            store.ingest_record(ingest_auth, rec)
+
+        retriever = HippocoreFtsRetriever(
+            store,
+            min_bm25_score=self._min_bm25_score,
+            log_retrievals=True,
+        )
+        engram = EngramAssociativePipeline(
+            store,
+            self._backend,
+            retriever=retriever,
+        )
+        router = RuleBasedRecallRouter(
+            store=store,
+            associative_available=True,
+        )
+        service = MemoryService(
+            store,
+            retriever=retriever,
+            router=router,
+            engram=engram,
+        )
+        self._cached_key = key
+        self._service = service
+        return service
+
+    def predict(
+        self,
+        question: BenchmarkQuestion,
+        world_records: Sequence[MemoryRecord],
+    ) -> SystemPrediction:
+        """Execute `MemoryService.ask` with Engram pipeline and rule-based router."""
+        service = self._ensure_service(world_records)
+        t0 = time.perf_counter()
+
+        auth = AuthContext(
+            tenant_id=question.tenant_id,
+            principal_id="benchmark-evaluator",
+            authorized_scopes=question.authorized_scopes,
+        )
+        cross_scope = question.preferred_mode != RecallMode.EVIDENCE
+
+        try:
+            resp = service.ask(
+                auth,
+                MemoryAskRequest(
+                    question=question.question,
+                    scope=question.requested_scope,
+                    mode=self._mode,
+                    cross_scope=cross_scope,
+                    limit=self._top_k,
+                ),
+            )
+        except FreudError:
+            latency_ms = (time.perf_counter() - t0) * 1000.0
+            return SystemPrediction(
+                question_id=question.question_id,
+                recall_mode=ResolvedRecallMode.EVIDENCE,
+                abstained=True,
+                answer_text="no_match",
+                latency_ms=latency_ms,
+            )
+
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+        if isinstance(resp, EvidenceRecallResponse):
+            if resp.status == "no_match" or not resp.records:
+                return SystemPrediction(
+                    question_id=question.question_id,
+                    recall_mode=ResolvedRecallMode.EVIDENCE,
+                    abstained=True,
+                    answer_text="no_match",
+                    latency_ms=latency_ms,
+                )
+            claims = tuple(
+                Claim(
+                    text=item.content,
+                    support=ClaimSupport.SUPPORTED,
+                    evidence=(item.memory_id,),
+                    scope=item.scope,
+                )
+                for item in resp.records
+            )
+            return SystemPrediction(
+                question_id=question.question_id,
+                recall_mode=ResolvedRecallMode.EVIDENCE,
+                abstained=False,
+                answer_text=" ".join(f"[{item.scope.id}] {item.content}" for item in resp.records),
+                claims=claims,
+                cited_record_ids=tuple(item.memory_id for item in resp.records),
+                latency_ms=latency_ms,
+            )
+
+        if isinstance(resp, AssociativeRecallResponse):
+            if resp.status == "unknown" or not resp.claims:
+                return SystemPrediction(
+                    question_id=question.question_id,
+                    recall_mode=ResolvedRecallMode.ASSOCIATIVE,
+                    abstained=True,
+                    answer_text="UNKNOWN",
+                    latency_ms=latency_ms,
+                )
+            cited = tuple(
+                dict.fromkeys(
+                    eid
+                    for c in resp.claims
+                    if c.support == ClaimSupport.SUPPORTED
+                    for eid in c.evidence
+                )
+            )
+            return SystemPrediction(
+                question_id=question.question_id,
+                recall_mode=ResolvedRecallMode.ASSOCIATIVE,
+                abstained=False,
+                answer_text=resp.answer or " ".join(c.text for c in resp.claims),
+                claims=resp.claims,
+                cited_record_ids=cited,
+                latency_ms=latency_ms,
+            )
+
+        return SystemPrediction(
+            question_id=question.question_id,
+            recall_mode=ResolvedRecallMode.EVIDENCE,
+            abstained=True,
+            answer_text="no_match",
+            latency_ms=latency_ms,
+        )
