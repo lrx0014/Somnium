@@ -1,0 +1,65 @@
+# Deterministic test profile (in-memory / fake backends, no ML dependencies)
+profile: test
+
+gateway:
+  transport: stdio
+  host: 127.0.0.1
+  port: 18765
+  default_tenant_id: test-tenant
+  default_scope:
+    kind: project
+    id: test-project
+  default_recall_mode: auto
+  allow_cross_scope_by_default: true
+
+storage:
+  backend: sqlite
+  database_url: "sqlite:///:memory:"
+  artifacts_dir: ".somnium/test/artifacts"
+
+inference:
+  backend: fake
+  base_model_id: "fake/engram-test-model"
+  base_model_revision: "v0"
+  quantization: null
+  max_tokens: 256
+  temperature: 0.0
+  timeout_seconds: 5.0
+
+training:
+  backend: fake
+  default_mode: incremental
+  lora_rank: 8
+  lora_alpha: 16
+  learning_rate: 0.0001
+  batch_size: 2
+  epochs: 1
+  replay_new_ratio: 0.4
+  replay_historical_ratio: 0.4
+  replay_negative_ratio: 0.2
+
+dream:
+  enabled: false
+  idle_threshold_seconds: 60
+  min_verified_examples: 10
+  pause_on_associative_traffic: true
+  require_ac_power: false
+  max_memory_pressure_pct: 95
+
+routing:
+  min_evidence_relevance: 0.65
+  associative_cue_patterns:
+    - "something like"
+    - "similar to"
+    - "reminds me of"
+    - "why did we"
+    - "how did it evolve"
+
+security:
+  auth_provider: static
+  require_network_auth: true
+
+observability:
+  log_level: DEBUG
+  log_json: true
+  metrics_enabled: false

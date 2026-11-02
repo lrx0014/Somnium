@@ -1,0 +1,67 @@
+# Production server profile (Linux GPU, CUDA backends, network MCP with auth)
+# Secrets (database_url credentials, api_token, signing_secret) must be injected
+# via SOMNIUM_* environment variables and never committed to this file.
+profile: prod
+
+gateway:
+  transport: streamable-http
+  host: 127.0.0.1
+  port: 8765
+  default_tenant_id: default-tenant
+  default_scope:
+    kind: project
+    id: default
+  default_recall_mode: auto
+  allow_cross_scope_by_default: false
+
+storage:
+  backend: sqlite
+  database_url: "sqlite:////var/lib/somnium/hippocore.db"
+  artifacts_dir: "/var/lib/somnium/artifacts"
+
+inference:
+  backend: cuda
+  base_model_id: "Qwen/Qwen3-8B"
+  base_model_revision: "main"
+  quantization: null
+  max_tokens: 512
+  temperature: 0.1
+  timeout_seconds: 30.0
+
+training:
+  backend: cuda
+  default_mode: incremental
+  lora_rank: 16
+  lora_alpha: 32
+  learning_rate: 0.0001
+  batch_size: 8
+  epochs: 2
+  replay_new_ratio: 0.4
+  replay_historical_ratio: 0.4
+  replay_negative_ratio: 0.2
+
+dream:
+  enabled: true
+  idle_threshold_seconds: 1800
+  min_verified_examples: 100
+  pause_on_associative_traffic: false
+  require_ac_power: false
+  max_memory_pressure_pct: 90
+
+routing:
+  min_evidence_relevance: 0.70
+  associative_cue_patterns:
+    - "something like"
+    - "similar to"
+    - "reminds me of"
+    - "why did we"
+    - "how did it evolve"
+
+security:
+  auth_provider: token
+  require_network_auth: true
+
+observability:
+  log_level: INFO
+  log_json: true
+  metrics_enabled: true

@@ -1,0 +1,65 @@
+# Development profile (Apple Silicon laptop, MLX backend, local stdio MCP)
+profile: dev
+
+gateway:
+  transport: stdio
+  host: 127.0.0.1
+  port: 8765
+  default_tenant_id: local-user
+  default_scope:
+    kind: project
+    id: default
+  default_recall_mode: auto
+  allow_cross_scope_by_default: true
+
+storage:
+  backend: sqlite
+  database_url: "sqlite:///.somnium/dev/hippocore.db"
+  artifacts_dir: ".somnium/dev/artifacts"
+
+inference:
+  backend: mlx
+  base_model_id: "Qwen/Qwen3-1.7B"
+  base_model_revision: "main"
+  quantization: "4bit"
+  max_tokens: 512
+  temperature: 0.1
+  timeout_seconds: 30.0
+
+training:
+  backend: mlx
+  default_mode: incremental
+  lora_rank: 16
+  lora_alpha: 32
+  learning_rate: 0.0001
+  batch_size: 4
+  epochs: 2
+  replay_new_ratio: 0.4
+  replay_historical_ratio: 0.4
+  replay_negative_ratio: 0.2
+
+dream:
+  enabled: true
+  idle_threshold_seconds: 1800
+  min_verified_examples: 100
+  pause_on_associative_traffic: true
+  require_ac_power: true
+  max_memory_pressure_pct: 85
+
+routing:
+  min_evidence_relevance: 0.65
+  associative_cue_patterns:
+    - "something like"
+    - "similar to"
+    - "reminds me of"
+    - "why did we"
+    - "how did it evolve"
+
+security:
+  auth_provider: static
+  require_network_auth: true
+
+observability:
+  log_level: INFO
+  log_json: false
+  metrics_enabled: false

@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "somnium"
+version = "0.1.0a0"
+description = "A bio-inspired, dream-driven neural memory system for AI agents."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "pyyaml>=6.0.1",
+    "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+# Empty placeholders in M0 (populated in M1 for mlx and v0.3 for cuda, per Milestones M0.2)
+mlx = []
+cuda = []
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.6.0",
+    "pyright>=1.1.380",
+    "import-linter>=2.0",
+]
+
+[project.scripts]
+somnium = "somnium.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/somnium"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingModuleSource = "none"
+
+[tool.importlinter]
+root_package = "somnium"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "No ML backend libraries outside somnium.backends"
+type = "forbidden"
+source_modules = [
+    "somnium.freud",
+    "somnium.hippocore",
+    "somnium.engram",
+    "somnium.dream",
+    "somnium.eval",
+    "somnium.config",
+    "somnium.domain",
+    "somnium.interfaces",
+    "somnium.observability",
+    "somnium.cli",
+]
+forbidden_modules = [
+    "mlx",
+    "mlx_lm",
+    "torch",
+    "peft",
+    "vllm",
+    "transformers",
+]

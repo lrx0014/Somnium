@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Lint, Typecheck & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Sync core and dev dependencies (without ML extras)
+        run: uv sync --extra dev --frozen
+
+      - name: Run Ruff linter
+        run: uv run ruff check src tests
+
+      - name: Run Ruff format check
+        run: uv run ruff format --check src tests
+
+      - name: Run Pyright type check
+        run: uv run pyright
+
+      - name: Check import boundaries (import-linter)
+        run: uv run lint-imports
+
+      - name: Run unit tests
+        run: uv run pytest

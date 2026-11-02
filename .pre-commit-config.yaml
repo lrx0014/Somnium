@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: import-boundaries
+        name: Check ML backend import boundaries
+        entry: uv run pytest tests/test_import_boundaries.py
+        language: system
+        pass_filenames: false

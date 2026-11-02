@@ -102,16 +102,16 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M0.1 Repository layout** per design §10 (`src/somnium/{freud,hippocore,engram,dream,backends,eval}`, `configs/`, `tests/`, `experiments/`, `deploy/`, `docs/`).
-- [ ] **M0.2 Packaging and tooling:** `pyproject.toml`, `uv` lockfile, Python 3.12+, optional extras `somnium[mlx]` and `somnium[cuda]` (empty placeholder for now), `ruff`, `pyright` (or `mypy`), `pytest`, pre-commit hooks.
-- [ ] **M0.3 CI:** lint, type check, unit tests on macOS and Linux; core install without ML extras; **import-boundary check** (e.g. `import-linter`) forbidding `mlx`, `torch`, `peft`, `vllm` outside `backends/`.
-- [ ] **M0.4 Configuration system:** typed settings (e.g. `pydantic-settings`), profiles `dev` / `test` / `prod`, environment overrides, `somnium config show` (secrets redacted).
-- [ ] **M0.5 Core domain types:** `TenantId`, `Scope`, `AuthContext`, `MemoryRecord`, `RecallMode` (`auto|evidence|associative`), `Claim`, `ClaimSupport`, versioned API request/response models.
-- [ ] **M0.6 Interfaces:** `MemoryStore`, `Retriever`, `InferenceBackend`, `TrainingBackend`, `RecallRouter`, `AuthProvider`, `Clock`, `ArtifactStore` as `Protocol`s.
-- [ ] **M0.7 Test doubles:** `FakeInferenceBackend` (deterministic, scriptable), `FakeTrainingBackend`, `FrozenClock`, `StaticAuthProvider`.
-- [ ] **M0.8 Logging:** structured logging with request/job correlation IDs; no-op metrics interface.
-- [ ] **M0.9 CLI skeleton:** `somnium --version`, `somnium config show` (e.g. Typer).
-- [ ] **M0.10 Decision log:** `docs/decisions.md` with ADR template; seed ADRs for already-resolved decisions (Python-only, recall modes, isolation model, training scope/mode, Engram role, naming).
+- [x] **M0.1 Repository layout** per design §10 (`src/somnium/{freud,hippocore,engram,dream,backends,eval}`, `configs/`, `tests/`, `experiments/`, `deploy/`, `docs/`).
+- [x] **M0.2 Packaging and tooling:** `pyproject.toml`, `uv` lockfile, Python 3.12+, optional extras `somnium[mlx]` and `somnium[cuda]` (empty placeholder for now), `ruff`, `pyright` (or `mypy`), `pytest`, pre-commit hooks.
+- [x] **M0.3 CI:** lint, type check, unit tests on macOS and Linux; core install without ML extras; **import-boundary check** (e.g. `import-linter`) forbidding `mlx`, `torch`, `peft`, `vllm` outside `backends/`.
+- [x] **M0.4 Configuration system:** typed settings (e.g. `pydantic-settings`), profiles `dev` / `test` / `prod`, environment overrides, `somnium config show` (secrets redacted).
+- [x] **M0.5 Core domain types:** `TenantId`, `Scope`, `AuthContext`, `MemoryRecord`, `RecallMode` (`auto|evidence|associative`), `Claim`, `ClaimSupport`, versioned API request/response models.
+- [x] **M0.6 Interfaces:** `MemoryStore`, `Retriever`, `InferenceBackend`, `TrainingBackend`, `RecallRouter`, `AuthProvider`, `Clock`, `ArtifactStore` as `Protocol`s.
+- [x] **M0.7 Test doubles:** `FakeInferenceBackend` (deterministic, scriptable), `FakeTrainingBackend`, `FrozenClock`, `StaticAuthProvider`.
+- [x] **M0.8 Logging:** structured logging with request/job correlation IDs; no-op metrics interface.
+- [x] **M0.9 CLI skeleton:** `somnium --version`, `somnium config show` (e.g. Typer).
+- [x] **M0.10 Decision log:** `docs/decisions.md` with ADR template; seed ADRs for already-resolved decisions (Python-only, recall modes, isolation model, training scope/mode, Engram role, naming).
 
 **Exit criteria**
 
