@@ -154,6 +154,8 @@ tenant_state = Table(
     metadata,
     Column("tenant_id", String(128), primary_key=True),
     Column("weights_dirty", Boolean, nullable=False, default=False),
+    Column("active_model_version", String(256), nullable=True),
+    Column("dream_state", String(64), nullable=False, default="awake"),
     Column("updated_at", String(64), nullable=False),
 )
 
@@ -172,4 +174,79 @@ routing_decisions = Table(
     Column("features_json", Text, nullable=False, default="{}"),
     Column("decided_at", String(64), nullable=False),
     Index("ix_routing_decisions_tenant_time", "tenant_id", "decided_at"),
+)
+
+dataset_manifests = Table(
+    "dataset_manifests",
+    metadata,
+    Column("dataset_hash", String(64), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("mode", String(32), nullable=False),
+    Column("parent_manifest_hash", String(64), nullable=True),
+    Column("generator_version", String(64), nullable=False),
+    Column("artifact_uri", Text, nullable=False),
+    Column("source_record_ids_json", Text, nullable=False, default="[]"),
+    Column("example_count", Integer, nullable=False, default=0),
+    Column("train_count", Integer, nullable=False, default=0),
+    Column("held_out_count", Integer, nullable=False, default=0),
+    Column("category_counts_json", Text, nullable=False, default="{}"),
+    Column("created_at", String(64), nullable=False),
+    Index("ix_dataset_manifests_tenant_time", "tenant_id", "created_at"),
+)
+
+training_examples = Table(
+    "training_examples",
+    metadata,
+    Column("example_id", String(128), primary_key=True),
+    Column("dataset_hash", String(64), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("category", String(64), nullable=False),
+    Column("fact_group_id", String(128), nullable=False),
+    Column("scope", String(256), nullable=False),
+    Column("split", String(32), nullable=False, default="train"),
+    Column("source_record_ids_json", Text, nullable=False, default="[]"),
+    Column("system_prompt", Text, nullable=False),
+    Column("user_prompt", Text, nullable=False),
+    Column("assistant_response", Text, nullable=False),
+    Column("created_at", String(64), nullable=False),
+    Index("ix_training_examples_tenant_dataset", "tenant_id", "dataset_hash"),
+)
+
+model_versions = Table(
+    "model_versions",
+    metadata,
+    Column("model_version", String(256), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("base_model_id", String(256), nullable=False),
+    Column("base_model_revision", String(128), nullable=False),
+    Column("parent_version", String(256), nullable=True),
+    Column("training_mode", String(32), nullable=False),
+    Column("dataset_manifest_hash", String(64), nullable=False),
+    Column("checkpoint_uri", Text, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("metrics_json", Text, nullable=False, default="{}"),
+    Column("gate_report_json", Text, nullable=False, default="{}"),
+    Column("created_at", String(64), nullable=False),
+    Column("promoted_at", String(64), nullable=True),
+    Index("ix_model_versions_tenant_status", "tenant_id", "status"),
+)
+
+dream_runs = Table(
+    "dream_runs",
+    metadata,
+    Column("run_id", String(64), primary_key=True),
+    Column("tenant_id", String(128), nullable=False),
+    Column("requested_mode", String(32), nullable=False),
+    Column("resolved_mode", String(32), nullable=False),
+    Column("forced_full_retrain_reason", String(256), nullable=True),
+    Column("state", String(64), nullable=False),
+    Column("parent_model_version", String(256), nullable=True),
+    Column("candidate_model_version", String(256), nullable=True),
+    Column("dataset_manifest_hash", String(64), nullable=True),
+    Column("training_metrics_json", Text, nullable=False, default="{}"),
+    Column("gate_passed", Boolean, nullable=False, default=False),
+    Column("gate_report_json", Text, nullable=False, default="{}"),
+    Column("started_at", String(64), nullable=False),
+    Column("completed_at", String(64), nullable=True),
+    Index("ix_dream_runs_tenant_started", "tenant_id", "started_at"),
 )

@@ -833,6 +833,42 @@ class HippocoreStore:
             rows = conn.execute(stmt).fetchall()
             return tuple(_row_to_memory_record(r) for r in rows)
 
+    def list_training_eligible(
+        self,
+        auth: AuthContext,
+        *,
+        include_superseded: bool = True,
+    ) -> Sequence[MemoryRecord]:
+        """List all training-eligible records across `auth`'s authorized scopes (M5.1).
+
+        Excludes `DELETED` records, `SensitivityLevel.HIGH` records, and any
+        record with `training_eligible=False`. Orders deterministically by
+        `(recorded_at, id)`.
+        """
+        _require_permission(auth, Permission.READ)
+        scope_filter = build_scoped_where(memory_facts, auth)
+        statuses = (
+            [MemoryStatus.ACTIVE.value, MemoryStatus.SUPERSEDED.value]
+            if include_superseded
+            else [MemoryStatus.ACTIVE.value]
+        )
+
+        with self._engine.connect() as conn:
+            stmt = (
+                select(memory_facts)
+                .where(
+                    and_(
+                        scope_filter,
+                        memory_facts.c.training_eligible.is_(True),
+                        memory_facts.c.sensitivity == SensitivityLevel.NORMAL.value,
+                        memory_facts.c.status.in_(statuses),
+                    )
+                )
+                .order_by(memory_facts.c.recorded_at.asc(), memory_facts.c.id.asc())
+            )
+            rows = conn.execute(stmt).fetchall()
+            return tuple(_row_to_memory_record(r) for r in rows)
+
     def log_access(
         self,
         auth: AuthContext,

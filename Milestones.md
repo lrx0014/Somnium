@@ -227,14 +227,14 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M5.1 Dataset builder:** from training-eligible records only; example types per design §8.2 (incl. scope-attribution and claim-labeling); replay sampling; split by fact; backend-neutral JSONL; manifest with dataset hash, source IDs, generator versions.
-- [ ] **M5.2 Augmentation cache:** LLM-generated paraphrases cached by content hash so manifests rebuild exactly.
-- [ ] **M5.3 MLX `TrainingBackend`:** LoRA training from base or parent adapter; chat-template rendering at train time; checkpoints; resumability; metrics; cancellation at safe points.
-- [ ] **M5.4 Artifact store:** content-addressed directory for adapters and dataset snapshots.
-- [ ] **M5.5 Model registry:** `model_versions`, `dream_runs` tables; lineage; per-tenant active pointer; atomic promotion and rollback via `InferenceBackend` swap.
-- [ ] **M5.6 Promotion gate:** candidate vs active on the regression suite; hard gates (isolation leakage, sensitive leakage, supported-without-evidence); no-material-regression comparisons with tolerances from config, calibrated from M1/M4 baselines; gate report stored with the run.
-- [ ] **M5.7 CLI:** `somnium dream run --mode incremental|full`, `somnium model list|show|promote|rollback`, `somnium dataset build|show`.
-- [ ] **M5.8 Deletion handling:** a training-eligible deletion forces the next run to be a full retrain; the deleted records are absent from the new manifest (tested).
+- [x] **M5.1 Dataset builder:** from training-eligible records only; example types per design §8.2 (incl. scope-attribution and claim-labeling); replay sampling; split by fact; backend-neutral JSONL; manifest with dataset hash, source IDs, generator versions.
+- [x] **M5.2 Augmentation cache:** LLM-generated paraphrases cached by content hash so manifests rebuild exactly.
+- [x] **M5.3 MLX `TrainingBackend`:** LoRA training from base or parent adapter; chat-template rendering at train time; checkpoints; resumability; metrics; cancellation at safe points.
+- [x] **M5.4 Artifact store:** content-addressed directory for adapters and dataset snapshots.
+- [x] **M5.5 Model registry:** `model_versions`, `dream_runs` tables; lineage; per-tenant active pointer; atomic promotion and rollback via `InferenceBackend` swap.
+- [x] **M5.6 Promotion gate:** candidate vs active on the regression suite; hard gates (isolation leakage, sensitive leakage, supported-without-evidence); no-material-regression comparisons with tolerances from config, calibrated from M1/M4 baselines; gate report stored with the run.
+- [x] **M5.7 CLI:** `somnium dream run --mode incremental|full`, `somnium model list|show|promote|rollback`, `somnium dataset build|show`.
+- [x] **M5.8 Deletion handling:** a training-eligible deletion forces the next run to be a full retrain; the deleted records are absent from the new manifest (tested).
 
 **Exit criteria**
 
@@ -250,14 +250,14 @@ Applies to every task in every milestone:
 
 **Tasks**
 
-- [ ] **M6.1 Idle detection** from external agent traffic (via `Clock`); configurable threshold.
-- [ ] **M6.2 State machine** (design §7) persisted in `dream_runs`; per-tenant single-writer lock; idempotent job IDs; crash recovery and resume.
-- [ ] **M6.3 Training worker subprocess;** pause at a safe checkpoint on associative traffic, resume when idle.
-- [ ] **M6.4 Resource policy (dev profile):** AC power, memory pressure, thermal state where available (verify macOS APIs/libraries); defer otherwise.
-- [ ] **M6.5 Triggers:** minimum new eligible examples; `weights_dirty` → full retrain; base model change → full retrain.
-- [ ] **M6.6 Status:** `memory_status` reports state, active model version, last run, gate summary, pending examples.
-- [ ] **M6.7 Soak test:** continuous mixed queries during training and promotion; zero failed requests; evidence recall unaffected.
-- [ ] **M6.8 Release packaging:** README quickstart, architecture overview, Codex setup, example `dev.yaml`, known limitations, v0.1 benchmark report, `CHANGELOG.md`.
+- [x] **M6.1 Idle detection** from external agent traffic (via `Clock`); configurable threshold.
+- [x] **M6.2 State machine** (design §7) persisted in `dream_runs`; per-tenant single-writer lock; idempotent job IDs; crash recovery and resume.
+- [x] **M6.3 Training worker subprocess;** pause at a safe checkpoint on associative traffic, resume when idle.
+- [x] **M6.4 Resource policy (dev profile):** AC power, memory pressure, thermal state where available (verify macOS APIs/libraries); defer otherwise.
+- [x] **M6.5 Triggers:** minimum new eligible examples; `weights_dirty` → full retrain; base model change → full retrain.
+- [x] **M6.6 Status:** `memory_status` reports state, active model version, last run, gate summary, pending examples.
+- [x] **M6.7 Soak test:** continuous mixed queries during training and promotion; zero failed requests; evidence recall unaffected.
+- [x] **M6.8 Release packaging:** README quickstart, architecture overview, Codex setup, example `dev.yaml`, known limitations, v0.1 benchmark report, `CHANGELOG.md`.
 
 **Exit criteria (= v0.1 release criteria)**
 

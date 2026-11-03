@@ -89,6 +89,8 @@ class TrainingExample:
     system_prompt: str
     user_prompt: str
     assistant_response: str
+    split: str = "train"
+    created_at: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Serialize to a deterministic JSON-compatible dictionary."""
@@ -103,6 +105,7 @@ class TrainingExample:
             "system_prompt": self.system_prompt,
             "user_prompt": self.user_prompt,
             "assistant_response": self.assistant_response,
+            "split": self.split,
         }
 
 

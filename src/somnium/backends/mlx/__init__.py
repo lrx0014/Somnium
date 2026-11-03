@@ -12,12 +12,15 @@ from somnium.backends.mlx.runner import (
     render_qwen3_chat_prompt,
     verify_qwen3_mlx_compatibility,
 )
+from somnium.backends.mlx.trainer import MLXTrainingBackend, load_adapter_checkpoint
 
 __all__ = [
     "AdapterSwapHook",
     "MLXCompatibilityReport",
     "MLXInferenceBackend",
     "MLXLoRAAssociativeBackend",
+    "MLXTrainingBackend",
+    "load_adapter_checkpoint",
     "render_qwen3_chat_prompt",
     "verify_qwen3_mlx_compatibility",
 ]

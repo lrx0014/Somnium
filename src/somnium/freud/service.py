@@ -8,6 +8,7 @@ isolation, untrusted-content delimiting, and structured `FreudError` codes.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -83,6 +84,7 @@ class MemoryService:
         *,
         router: RecallRouter | None = None,
         engram: EngramAssociativePipeline | None = None,
+        dream_engine: Any | None = None,
         default_scope: Scope | None = None,
         min_evidence_relevance: float = 0.0,
         active_model_version: str = "engram-base-none",
@@ -90,6 +92,7 @@ class MemoryService:
         self._store = store
         self._retriever: Retriever = retriever or HippocoreFtsRetriever(store)
         self._engram = engram
+        self._dream_engine = dream_engine
         self._router: RecallRouter = router or RuleBasedRecallRouter(
             store=store,
             associative_available=lambda: self._engram is not None,
@@ -114,12 +117,19 @@ class MemoryService:
         return self._engram
 
     @property
+    def dream_engine(self) -> Any | None:
+        """Configured `DreamEngine` instance, if any."""
+        return self._dream_engine
+
+    @property
     def default_scope(self) -> Scope:
         """Default scope when a request omits an explicit scope."""
         return self._default_scope
 
     def store(self, auth: AuthContext, request: MemoryStoreRequest) -> MemoryStoreResponse:
         """Persist a new memory event within an authorized scope."""
+        if self._dream_engine is not None:
+            self._dream_engine.record_traffic(auth.tenant_id)
         try:
             return self._store.store(auth, request)
         except Exception as exc:
@@ -127,6 +137,12 @@ class MemoryService:
 
     def ask(self, auth: AuthContext, request: MemoryAskRequest) -> MemoryAskResponse:
         """Execute memory recall in `evidence`, `associative`, or `auto` mode (M3.1, M4.7)."""
+        if self._dream_engine is not None:
+            if request.mode == RecallMode.ASSOCIATIVE:
+                self._dream_engine.notify_associative_traffic(auth.tenant_id)
+            else:
+                self._dream_engine.record_traffic(auth.tenant_id)
+
         if not auth.has_permission(Permission.READ):
             raise FreudError(
                 ErrorCode.PERMISSION_DENIED,
@@ -193,6 +209,8 @@ class MemoryService:
 
     def correct(self, auth: AuthContext, request: MemoryCorrectRequest) -> MemoryCorrectResponse:
         """Record an immutable revision superseding an existing memory record."""
+        if self._dream_engine is not None:
+            self._dream_engine.record_traffic(auth.tenant_id)
         try:
             return self._store.correct(auth, request)
         except Exception as exc:
@@ -200,6 +218,8 @@ class MemoryService:
 
     def forget(self, auth: AuthContext, request: MemoryForgetRequest) -> MemoryForgetResponse:
         """Delete a memory record and mark tenant weights dirty if training-eligible."""
+        if self._dream_engine is not None:
+            self._dream_engine.record_traffic(auth.tenant_id)
         try:
             return self._store.forget(auth, request)
         except Exception as exc:
@@ -214,29 +234,38 @@ class MemoryService:
         _ = request
         try:
             dirty = self._store.is_weights_dirty(auth)
-            with self._store.engine.connect() as conn:
-                pending_count = int(
-                    conn.execute(
-                        select(func.count(memory_facts.c.id)).where(
-                            and_(
-                                memory_facts.c.tenant_id == auth.tenant_id,
-                                memory_facts.c.status == MemoryStatus.ACTIVE.value,
-                                memory_facts.c.training_eligible.is_(True),
+            if self._dream_engine is not None:
+                pending_count = self._dream_engine.count_pending_examples(auth.tenant_id)
+                dream_state = self._dream_engine.get_dream_state(auth.tenant_id)
+                active_version = self._dream_engine.registry.get_active_version(auth.tenant_id)
+            else:
+                with self._store.engine.connect() as conn:
+                    pending_count = int(
+                        conn.execute(
+                            select(func.count(memory_facts.c.id)).where(
+                                and_(
+                                    memory_facts.c.tenant_id == auth.tenant_id,
+                                    memory_facts.c.status == MemoryStatus.ACTIVE.value,
+                                    memory_facts.c.training_eligible.is_(True),
+                                )
                             )
-                        )
-                    ).scalar_one()
+                        ).scalar_one()
+                    )
+                dream_state = DreamLifecycleState.AWAKE
+                active_version = None
+
+            if not active_version:
+                active_version = (
+                    self._engram.inference_backend.active_version(auth.tenant_id)
+                    if self._engram is not None
+                    else self._active_model_version
                 )
         except Exception as exc:
             raise _map_store_exception(exc) from exc
 
-        active_version = (
-            self._engram.inference_backend.active_version(auth.tenant_id)
-            if self._engram is not None
-            else self._active_model_version
-        )
         return MemoryStatusResponse(
             tenant_id=auth.tenant_id,
-            dream_state=DreamLifecycleState.AWAKE,
+            dream_state=dream_state,
             active_model_version=active_version,
             pending_training_examples=pending_count,
             weights_dirty=dirty,

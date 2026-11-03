@@ -62,9 +62,27 @@ memory_app = typer.Typer(
     help="Store, search, inspect, correct, forget, and export episodic memories.",
     no_args_is_help=True,
 )
+dream_app = typer.Typer(
+    name="dream",
+    help="Dream Engine training, evaluation, and consolidation (M5).",
+    no_args_is_help=True,
+)
+model_app = typer.Typer(
+    name="model",
+    help="Model registry inspection, promotion, and rollback (M5).",
+    no_args_is_help=True,
+)
+dataset_app = typer.Typer(
+    name="dataset",
+    help="Dataset manifest building and inspection (M5).",
+    no_args_is_help=True,
+)
 app.add_typer(config_app, name="config")
 app.add_typer(eval_app, name="eval")
 app.add_typer(memory_app, name="memory")
+app.add_typer(dream_app, name="dream")
+app.add_typer(model_app, name="model")
+app.add_typer(dataset_app, name="dataset")
 
 
 def _version_callback(value: bool) -> None:
@@ -639,6 +657,401 @@ def memory_status_cmd(
         _echo_structured(resp.model_dump(mode="json"), output_format)
     except FreudError as exc:
         _handle_freud_error(exc, output_format)
+
+
+def _get_dream_stack(
+    settings: Any,
+    db_url_override: str | None = None,
+) -> tuple[Any, Any, Any, Any, Any, Any]:
+    """Helper to assemble Hippocore, ArtifactStore, ModelRegistry, and Backends."""
+    from somnium.dream import (
+        LocalFilesystemArtifactStore,
+        ModelRegistry,
+    )
+
+    store, service, auth_provider, _ = build_freud_stack(settings, db_url_override=db_url_override)
+    artifact_store = LocalFilesystemArtifactStore(settings.storage.artifacts_dir)
+    registry = ModelRegistry(store.engine)
+    inference_backend = (
+        service.engram_pipeline.inference_backend if service.engram_pipeline else None
+    )
+
+    if settings.training.backend == "mlx":
+        from somnium.backends.mlx import MLXTrainingBackend
+
+        training_backend = MLXTrainingBackend(artifact_store)
+    else:
+        from somnium.backends.fake import FakeTrainingBackend
+
+        training_backend = FakeTrainingBackend()
+
+    return store, artifact_store, registry, training_backend, inference_backend, auth_provider
+
+
+@dream_app.command("run")
+def dream_run_cmd(
+    mode: Annotated[
+        str,
+        typer.Option("--mode", "-m", help="Training mode: 'incremental' or 'full'."),
+    ] = "incremental",
+    auto_promote: Annotated[
+        bool,
+        typer.Option(
+            "--auto-promote/--no-auto-promote",
+            help="Automatically promote candidate adapter if promotion gate passes.",
+        ),
+    ] = True,
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Execute an end-to-end Dream cycle (`somnium dream run --mode incremental|full`)."""
+    from somnium.dream import execute_dream_cycle
+
+    settings = load_settings(profile=profile)
+    (
+        store,
+        artifact_store,
+        registry,
+        training_backend,
+        inference_backend,
+        auth_provider,
+    ) = _get_dream_stack(settings, db_url_override=db_url)
+
+    auth = auth_provider.authenticate()
+    result = execute_dream_cycle(
+        auth,
+        store=store,
+        artifact_store=artifact_store,
+        training_backend=training_backend,
+        inference_backend=inference_backend,
+        model_registry=registry,
+        requested_mode=mode,
+        auto_promote=auto_promote,
+        base_model_id=settings.inference.base_model_id,
+        base_model_revision=settings.inference.base_model_revision,
+        epochs=settings.training.epochs,
+        learning_rate=settings.training.learning_rate,
+        lora_rank=settings.training.lora_rank,
+    )
+
+    summary = {
+        "run_id": result.run_record.run_id,
+        "tenant_id": result.run_record.tenant_id,
+        "requested_mode": result.run_record.requested_mode,
+        "resolved_mode": result.run_record.resolved_mode,
+        "forced_full_retrain_reason": result.run_record.forced_full_retrain_reason,
+        "dataset_hash": result.dataset_manifest.dataset_hash,
+        "candidate_model_version": result.candidate_version_record.model_version,
+        "candidate_status": result.candidate_version_record.status,
+        "gate_passed": result.gate_report.passed,
+        "promoted": result.promoted,
+        "active_model_version": registry.get_active_version(auth.tenant_id),
+        "failures": list(result.gate_report.failures),
+    }
+    _echo_structured(summary, output_format)
+
+
+@model_app.command("list")
+def model_list_cmd(
+    status: Annotated[
+        str | None,
+        typer.Option("--status", "-s", help="Filter by status ('candidate', 'promoted', etc.)."),
+    ] = None,
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """List model versions registered for the tenant (`somnium model list`)."""
+    settings = load_settings(profile=profile)
+    _, _, registry, _, _, auth_provider = _get_dream_stack(settings, db_url_override=db_url)
+    auth = auth_provider.authenticate()
+
+    versions = registry.list_versions(auth.tenant_id, status=status)
+    active = registry.get_active_version(auth.tenant_id)
+    output = [
+        {
+            "model_version": v.model_version,
+            "status": v.status,
+            "is_active": (v.model_version == active),
+            "training_mode": v.training_mode,
+            "parent_version": v.parent_version,
+            "dataset_manifest_hash": v.dataset_manifest_hash,
+            "created_at": v.created_at,
+            "promoted_at": v.promoted_at,
+        }
+        for v in versions
+    ]
+    _echo_structured(output, output_format)
+
+
+@model_app.command("show")
+def model_show_cmd(
+    model_version: Annotated[str, typer.Argument(help="Model version to inspect.")],
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Show details of a specific model version (`somnium model show <version>`)."""
+    settings = load_settings(profile=profile)
+    _, _, registry, _, _, auth_provider = _get_dream_stack(settings, db_url_override=db_url)
+    auth = auth_provider.authenticate()
+
+    rec = registry.get_version(model_version)
+    if rec is None or rec.tenant_id != auth.tenant_id:
+        _echo_structured({"error": f"Model version '{model_version}' not found."}, output_format)
+        raise typer.Exit(code=1)
+
+    active = registry.get_active_version(auth.tenant_id)
+    payload = {
+        "model_version": rec.model_version,
+        "tenant_id": rec.tenant_id,
+        "status": rec.status,
+        "is_active": (rec.model_version == active),
+        "base_model_id": rec.base_model_id,
+        "base_model_revision": rec.base_model_revision,
+        "parent_version": rec.parent_version,
+        "training_mode": rec.training_mode,
+        "dataset_manifest_hash": rec.dataset_manifest_hash,
+        "checkpoint_uri": rec.checkpoint_uri,
+        "metrics": rec.metrics,
+        "gate_report": rec.gate_report,
+        "created_at": rec.created_at,
+        "promoted_at": rec.promoted_at,
+    }
+    _echo_structured(payload, output_format)
+
+
+@model_app.command("promote")
+def model_promote_cmd(
+    model_version: Annotated[str, typer.Argument(help="Model version to promote.")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Force promotion even if status was rejected."),
+    ] = False,
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Promote a candidate model version to active (`somnium model promote <version>`)."""
+    settings = load_settings(profile=profile)
+    (
+        _,
+        _,
+        registry,
+        _,
+        inference_backend,
+        auth_provider,
+    ) = _get_dream_stack(settings, db_url_override=db_url)
+    auth = auth_provider.authenticate()
+
+    try:
+        res = registry.promote(
+            tenant_id=auth.tenant_id,
+            candidate_version=model_version,
+            inference_backend=inference_backend,
+            force=force,
+        )
+        _echo_structured(
+            {
+                "status": "promoted",
+                "promoted_version": res.promoted_version,
+                "previous_version": res.previous_version,
+                "promoted_at": res.promoted_at,
+            },
+            output_format,
+        )
+    except Exception as exc:
+        _echo_structured({"error": str(exc)}, output_format)
+        raise typer.Exit(code=1) from None
+
+
+@model_app.command("rollback")
+def model_rollback_cmd(
+    target: Annotated[
+        str | None,
+        typer.Option("--target", "-t", help="Target model version (or previous if omitted)."),
+    ] = None,
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Roll back tenant active model version (`somnium model rollback`)."""
+    settings = load_settings(profile=profile)
+    (
+        _,
+        _,
+        registry,
+        _,
+        inference_backend,
+        auth_provider,
+    ) = _get_dream_stack(settings, db_url_override=db_url)
+    auth = auth_provider.authenticate()
+
+    try:
+        res = registry.rollback(
+            tenant_id=auth.tenant_id,
+            target_version=target,
+            inference_backend=inference_backend,
+        )
+        _echo_structured(
+            {
+                "status": "rolled_back",
+                "active_version": res.active_version,
+                "rolled_back_version": res.rolled_back_version,
+                "rolled_back_at": res.rolled_back_at,
+            },
+            output_format,
+        )
+    except Exception as exc:
+        _echo_structured({"error": str(exc)}, output_format)
+        raise typer.Exit(code=1) from None
+
+
+@dataset_app.command("build")
+def dataset_build_cmd(
+    mode: Annotated[
+        str,
+        typer.Option("--mode", "-m", help="Training mode: 'incremental' or 'full'."),
+    ] = "incremental",
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Build a training dataset manifest (`somnium dataset build --mode incremental|full`)."""
+    from somnium.dream import build_tenant_dataset
+
+    settings = load_settings(profile=profile)
+    store, artifact_store, registry, _, _, auth_provider = _get_dream_stack(
+        settings, db_url_override=db_url
+    )
+    auth = auth_provider.authenticate()
+
+    active_version = registry.get_active_version(auth.tenant_id)
+    parent_manifest_hash: str | None = None
+    if active_version:
+        active_rec = registry.get_version(active_version)
+        if active_rec:
+            parent_manifest_hash = active_rec.dataset_manifest_hash
+
+    manifest = build_tenant_dataset(
+        auth,
+        store=store,
+        artifact_store=artifact_store,
+        training_mode=mode,
+        parent_manifest_hash=parent_manifest_hash,
+    )
+
+    payload = {
+        "dataset_hash": manifest.dataset_hash,
+        "tenant_id": manifest.tenant_id,
+        "training_mode": manifest.training_mode,
+        "generator_version": manifest.generator_version,
+        "parent_manifest_hash": manifest.parent_manifest_hash,
+        "source_records_count": len(manifest.source_record_ids),
+        "total_examples_count": len(manifest.examples),
+        "example_counts": manifest.example_counts,
+        "artifact_uri": manifest.artifact_uri,
+        "created_at": manifest.created_at,
+    }
+    _echo_structured(payload, output_format)
+
+
+@dataset_app.command("show")
+def dataset_show_cmd(
+    dataset_hash: Annotated[str, typer.Argument(help="SHA-256 hash of the dataset manifest.")],
+    profile: Annotated[
+        ProfileName | None,
+        typer.Option("--profile", "-p", help="Configuration profile."),
+    ] = None,
+    db_url: Annotated[
+        str | None,
+        typer.Option("--db-url", help="Database URL override."),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: 'json' or 'yaml'."),
+    ] = "json",
+) -> None:
+    """Show details of a dataset manifest (`somnium dataset show <hash>`)."""
+    from somnium.dream import load_dataset_manifest
+
+    settings = load_settings(profile=profile)
+    store, artifact_store, _, _, _, _ = _get_dream_stack(settings, db_url_override=db_url)
+
+    try:
+        manifest = load_dataset_manifest(store.engine, artifact_store, dataset_hash)
+        payload = {
+            "dataset_hash": manifest.dataset_hash,
+            "tenant_id": manifest.tenant_id,
+            "training_mode": manifest.training_mode,
+            "generator_version": manifest.generator_version,
+            "parent_manifest_hash": manifest.parent_manifest_hash,
+            "source_records_count": len(manifest.source_record_ids),
+            "source_record_ids": list(manifest.source_record_ids),
+            "total_examples_count": len(manifest.examples),
+            "example_counts": manifest.example_counts,
+            "artifact_uri": manifest.artifact_uri,
+            "created_at": manifest.created_at,
+        }
+        _echo_structured(payload, output_format)
+    except Exception as exc:
+        _echo_structured({"error": str(exc)}, output_format)
+        raise typer.Exit(code=1) from None
 
 
 def main() -> None:

@@ -46,6 +46,7 @@ class TrainingJobSpec:
     dataset_uri: str
     base_model_id: str
     base_model_revision: str
+    candidate_version: str | None = None
     parent_adapter_version: str | None = None
     training_mode: str = "incremental"
     epochs: int = 2

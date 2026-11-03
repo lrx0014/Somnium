@@ -11,15 +11,19 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import Column, Engine, MetaData, String, Table, inspect, text
 
 from somnium.hippocore.schema import (
+    dataset_manifests,
     deletion_requests,
+    dream_runs,
     memory_access,
     memory_events,
     memory_facts,
     memory_revisions,
     memory_sources,
     metadata,
+    model_versions,
     routing_decisions,
     tenant_state,
+    training_examples,
 )
 
 INITIAL_REVISION = "0001_initial_hippocore"
@@ -41,6 +45,10 @@ _ALL_CORE_TABLES = (
     deletion_requests,
     tenant_state,
     routing_decisions,
+    dataset_manifests,
+    training_examples,
+    model_versions,
+    dream_runs,
 )
 
 
@@ -71,6 +79,21 @@ def upgrade_database(engine: Engine, target: str = "head") -> str:
         for table in _ALL_CORE_TABLES:
             if table.name not in existing_tables:
                 table.create(conn, checkfirst=True)
+
+        # Idempotently ensure newer tenant_state columns exist on older databases
+        if "tenant_state" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("tenant_state")}
+            if "active_model_version" not in columns:
+                conn.execute(
+                    text("ALTER TABLE tenant_state ADD COLUMN active_model_version VARCHAR(256)")
+                )
+            if "dream_state" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE tenant_state "
+                        "ADD COLUMN dream_state VARCHAR(64) DEFAULT 'awake' NOT NULL"
+                    )
+                )
 
         # Create SQLite FTS5 virtual table when running on SQLite
         if conn.dialect.name == "sqlite" and "memory_fts" not in existing_tables:

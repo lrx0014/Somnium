@@ -297,6 +297,7 @@ def build_freud_stack(
     *,
     db_url_override: str | None = None,
     inference_backend: InferenceBackend | None = None,
+    dream_engine: Any | None = None,
 ) -> tuple[HippocoreStore, MemoryService, StaticLocalAuthProvider, MCPServer]:
     """Instantiate `HippocoreStore`, `MemoryService`, `StaticLocalAuthProvider`, and `MCPServer`."""
     db_url = db_url_override or settings.storage.database_url.get_secret_value()
@@ -322,10 +323,42 @@ def build_freud_stack(
         store=store,
         associative_available=True,
     )
+
+    effective_dream_engine = dream_engine
+    if effective_dream_engine is None and settings.dream.enabled:
+        from somnium.dream import (
+            DreamEngine,
+            LocalFilesystemArtifactStore,
+            ModelRegistry,
+        )
+
+        artifact_store = LocalFilesystemArtifactStore(settings.storage.artifacts_dir)
+        registry = ModelRegistry(store.engine)
+        if settings.training.backend == "mlx":
+            from somnium.backends.mlx import MLXTrainingBackend
+
+            trainer: Any = MLXTrainingBackend(artifact_store)
+        else:
+            from somnium.backends.fake import FakeTrainingBackend
+
+            trainer = FakeTrainingBackend()
+
+        effective_dream_engine = DreamEngine(
+            store=store,
+            artifact_store=artifact_store,
+            training_backend=trainer,
+            inference_backend=backend,
+            model_registry=registry,
+            dream_config=settings.dream,
+            base_model_id=settings.inference.base_model_id,
+            base_model_revision=settings.inference.base_model_revision,
+        )
+
     service = MemoryService(
         store,
         router=router,
         engram=engram,
+        dream_engine=effective_dream_engine,
         default_scope=settings.gateway.default_scope,
         min_evidence_relevance=0.0,
         active_model_version=f"{settings.inference.base_model_id}@base",
@@ -340,8 +373,15 @@ def run_stdio_server(
     db_url_override: str | None = None,
 ) -> None:
     """Start the Freud MCP server over stdio transport (`somnium serve --stdio`)."""
-    _, _, _, mcp_server = build_freud_stack(settings, db_url_override=db_url_override)
-    mcp_server.run(transport="stdio")
+    _, service, _, mcp_server = build_freud_stack(settings, db_url_override=db_url_override)
+    if service.dream_engine is not None and settings.dream.enabled:
+        service.dream_engine.start()
+
+    try:
+        mcp_server.run(transport="stdio")
+    finally:
+        if service.dream_engine is not None:
+            service.dream_engine.stop()
 
 
 __all__ = [

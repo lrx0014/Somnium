@@ -11,15 +11,19 @@ from somnium.hippocore.migrations import (
 )
 from somnium.hippocore.retriever import HippocoreFtsRetriever
 from somnium.hippocore.schema import (
+    dataset_manifests,
     deletion_requests,
+    dream_runs,
     memory_access,
     memory_events,
     memory_facts,
     memory_revisions,
     memory_sources,
     metadata,
+    model_versions,
     routing_decisions,
     tenant_state,
+    training_examples,
 )
 from somnium.hippocore.security import (
     SecretDetectedError,
@@ -42,16 +46,20 @@ __all__ = [
     "classify_sensitivity",
     "compute_training_eligibility",
     "current_revision",
+    "dataset_manifests",
     "deletion_requests",
     "downgrade_database",
+    "dream_runs",
     "memory_access",
     "memory_events",
     "memory_facts",
     "memory_revisions",
     "memory_sources",
     "metadata",
+    "model_versions",
     "normalize_content",
     "routing_decisions",
     "tenant_state",
+    "training_examples",
     "upgrade_database",
 ]
